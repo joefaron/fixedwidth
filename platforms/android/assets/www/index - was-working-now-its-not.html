@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+
+<html>
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="maximum-scale=1, initial-scale=1, minimum-scale=1, width=480" /> <!-- assume they're in portait -->
+        <title>Hello World</title>
+    </head>
+    <body style='margin:0;padding:0'>
+    
+    
+<style>body{background-color:#ff0000;}
+
+#dpi {
+  height: 1in;
+  left: -100%;
+  position: absolute;
+  top: -100%;
+  width: 1in;
+}
+#main_container{
+margin:0;padding:0;
+background-color:#d99;display:block;height:1000px;position:relative;
+  overflow:hidden; /* otherwise a single pixel over their device width will allow zooming */
+}
+
+</style>
+        <div id='main_container'>
+          <div style="width:100px;background-color:#0f0;display:block;height:100px;position:absolute;top:0px;left:0px">100px</div>
+          <div style="width:100px;background-color:#0ff;display:block;height:100px;position:absolute;top:0px;left:100px">200px</div>
+          <div style="width:100px;background-color:#00f;display:block;height:100px;position:absolute;top:0px;left:200px">300</div>
+          <div style="width:100px;background-color:#ff0;display:block;height:100px;position:absolute;top:0px;left:300px">400</div>
+          <div style="width:100px;background-color:#fff;display:block;height:100px;position:absolute;top:0px;left:400px">500</div>
+          <div style="width:100px;background-color:#077;display:block;height:100px;position:absolute;top:0px;left:500px">600</div>
+          <div style="width:100px;background-color:#8aadfb;display:block;height:100px;position:absolute;top:0px;left:600px">700</div>
+				<div style="width:100px;background-color:#0f0;display:block;height:100px;position:absolute;bottom:0px;left:0px"></div>
+				<div style="width:100px;background-color:#0f0;display:block;height:100px;position:absolute;bottom:0px;right:0px"></div>
+			
+			<BR><BR><BR><BR><BR>
+			<BR><BR><BR><BR><BR>
+		    <center>
+		    <a onclick='getWidths()'>getwidths?</a>
+		    <a onclick='scaleView()'>ScaleView?</a><BR>
+          width:		    <input type="text" id='wid' value=''/><BR>
+          scale:		    <input type="text" id='sca' value=''/>
+		    <div id='console'></div>
+		    </center>
+	     </div>
+
+
+<style>
+    pre {
+        white-space: pre-wrap;       /* css-3 */
+        white-space: -moz-pre-wrap;  /* Mozilla, since 1999 */
+        white-space: -pre-wrap;      /* Opera 4-6 */
+        white-space: -o-pre-wrap;    /* Opera 7 */
+        word-wrap: break-word;       /* Internet Explorer 5.5+ */
+    }
+
+</style>
+    
+
+
+
+<script type="text/javascript" src="cordova.js"></script>
+<script type="text/javascript" src="js/index.js"></script>
+
+<script type="text/javascript" src="http://vulgarbash.com/js/jquery-1.10.2.min.js"></script>
+<script type="text/javascript" src="http://vulgarbash.com/js/jquery-migrate-1.2.1.min.js"></script>
+<script type="text/javascript" src="http://vulgarbash.com/js/jquery-ui-1.10.3.min.js"></script>
+<script type="text/javascript" src="http://vulgarbash.com/js/cordova-static.js"></script> <!-- prints console.log to $("#console") -->
+
+<script>
+document.addEventListener('deviceready', function() {
+  console.log("deviceready!");
+  scaleView();
+});
+document.addEventListener('resume', function() {
+  console.log("resume!");
+  scaleView();
+});
+
+
+function getDPI() {
+  return 48 * window.devicePixelRatio; // g2 returns 1.5.. x48= 72dpi..   gs2 also returns 1.5.. but its actually not.. it's 2.  gs3 returns 2.. x48=96dpi!
+}
+
+// need to get the max screen_width we can do.. on 4.3 you need to take the width by the dpi
+//for example my gs3 is 720x1280 @ 96dpi. anything over 540 width portrait.. or 960 width landscape will cause zooming!  72dpi/96dpi = .75 * 720=540
+function getWidthInPixels(){
+  return Math.floor(getWidth() * (72/getDPI())); // use actual pixels.. not css pixels..
+}
+
+function getWidths(){
+    var ret="getWidth()=" + getWidth();
+    ret+=", w=" + screen.width;
+    ret+=", outerWidth=" + window.outerWidth;
+    ret+=", availWidth=" + window.screen.availWidth;
+    ret+=", innerWidth=" + window.innerWidth;
+    ret+=", clientWidth=" + document.body.clientWidth+"<BR>";
+    $("#console").prepend(ret);
+
+}
+function getHeights(){
+    var ret="outerHeight=" + window.outerHeight;
+    ret+=", ht=" + screen.height;
+    ret+=", availHeight=" + window.screen.availHeight;
+    ret+=", innerHeight=" + window.innerHeight;
+    ret+=", clientHeight=" + document.body.clientHeight+"<BR>";
+    $("#console").prepend(ret);
+
+}
+
+
+function getWidthOfBody(){
+  return $(window).width(); // width of the actual html body.
+}
+function getWidthOfDevice(){
+  return document.body.clientWidth;// actual device width
+}
+
+
+// set the devices portrait_width and landscape_width based on the original orientation that we get.. then use these hereafter.. based on window.orientation
+var width_portrait=0;
+var width_landscape=0;
+function setWidths(){
+    // .availHeight/.availWidth are set and correct right away..
+  if(window.orientation==0 || window.orientation==180){
+    //portrait!
+    width_portrait= window.screen.availWidth;
+    width_landscape=window.screen.availHeight;
+  }else{
+    //landscape!
+    width_landscape= window.screen.availHeight;
+    width_portrait=window.screen.availWidth;//window.screen.outerHeight;
+  }
+}
+
+function getWidth(){
+    if(width_portrait==undefined || width_portrait==0){
+        setWidths(); // set it on first call.
+        getWidths();
+        getHeights();
+    }
+  return (window.orientation==0 || window.orientation==180) ? width_portrait : width_landscape;
+}
+
+
+window.onorientationchange = function(){
+  scaleView();
+}
+
+function scaleView() {
+  var screen_width;
+  var maximum_scale=1;
+  var content="";
+
+  getWidths();
+  if (window.orientation==0 || window.orientation==180){ // portrait
+    screen_width = 508;
+  } else { // landscape
+    screen_width = 900;
+  }
+
+  var max_width=getWidthInPixels();
+
+    // if we set the width to be greater than what their screen is capable of.. 4.0+ seems to allow zooming then.
+    if(max_width<screen_width){
+      console.log("cur max width="+max_width+" and wanting="+screen_width +" - scaling down to prevent zooming!");
+      // there is some rounding error here.. since scale only goes 2 decimal places.. you can possibly have
+      maximum_scale=max_width/screen_width;
+
+    }
+
+    // round max scale to 2 decimals.. because thats all the viewport takes
+    maximum_scale = Math.round(maximum_scale*100)/100;
+
+    // minimum and initial scale fix 2.3.4 issue of it starting zoomed out... and on scales of <1 allowing zoom.
+    content='maximum-scale='+maximum_scale+', minimum-scale='+maximum_scale+', initial-scale='+maximum_scale+', width='+screen_width;
+
+    $('meta[name=viewport]').attr('content', content);
+
+    console.log("content="+content);
+}
+
+
+</script>
+
+    </body>
+</html>

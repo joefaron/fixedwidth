@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<!--
+    Licensed to the Apache Software Foundation (ASF) under one
+    or more contributor license agreements.  See the NOTICE file
+    distributed with this work for additional information
+    regarding copyright ownership.  The ASF licenses this file
+    to you under the Apache License, Version 2.0 (the
+    "License"); you may not use this file except in compliance
+    with the License.  You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing,
+    software distributed under the License is distributed on an
+    "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+     KIND, either express or implied.  See the License for the
+    specific language governing permissions and limitations
+    under the License.
+-->
+<html>
+<head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=800"/>
+    <title>Hello World</title>
+  <script src="http://ajax.googleapis.com/ajax/libs/jquery/2.1.0/jquery.min.js"></script>
+
+
+
+    <script language="javascript">
+        document.addEventListener('deviceready', function () {
+            console.log("deviceready!");
+            scaleView();
+        });
+        document.addEventListener('resume', function () {
+            console.log("resume!");
+            scaleView(); // noticed scale issues sometimes when resuming app..
+        });
+
+        //this is my biggest concern in my fix.. not sure how other devicePixelRatios will go.. came up with this on my own.
+        function getDPI() {
+            return 48 * window.devicePixelRatio; // g2 returns 1.5.. x48= 72dpi.. gs3 returns 2.. x48=96dpi!
+        }
+
+        function getWidthInPixels() {
+            return Math.floor(getWidth() * (72 / getDPI())); // use actual pixels.. not css pixels..
+        }
+
+        function getWidths() {
+            var availableWidths = [window.outerWidth, window.screen.availWidth, window.innerWidth, document.body.clientWidth, screen.width];
+            console.log("availableWidths=" + availableWidths);
+
+        }
+
+
+        function getWidthOfBody() {
+            return $(window).width(); // width of the actual html body.
+        }
+        function getWidthOfDevice() {
+            return document.body.clientWidth;// actual device width
+        }
+
+
+        // set the devices portrait_width and landscape_width based on the original orientation that we get.. then use these hereafter.. based on window.orientation
+        // should be instant compared to doing a setInterval() after orientation changes.
+        var width_portrait;
+        var width_landscape;
+        setWidths();
+        function setWidths() {
+            if (window.orientation == 0 || window.orientation == 180) {
+                //portrait!
+                width_portrait = window.outerWidth;
+                width_landscape = window.outerHeight;
+            } else {
+                //landscape!
+                width_landscape = window.outerWidth;
+                width_portrait = window.outerHeight;
+            }
+        }
+        function getWidth() {
+            return (window.orientation == 0 || window.orientation == 180) ? width_portrait : width_landscape;
+        }
+
+
+        window.onorientationchange = function () { // this is fired before on.resize.. so use this instead?
+            console.log("on orient change. actual width=" + getWidth());
+
+            scaleView();
+        };
+
+
+        function scaleView() {
+            var screen_width;
+            var maximum_scale = 1;
+            var content = "";
+
+            getWidths();
+            if (window.orientation == 0 || window.orientation == 180) { // portrait
+
+                screen_width = 480;
+            } else if (1) { // landscape
+                screen_width = 800;
+            }
+
+            var max_width = getWidthInPixels();
+
+            console.log("dpi=" + getDPI() + " ratio=" + (72 / getDPI()) + " max width=" + max_width + " screenw=" + screen_width + " realwidth=" + getWidth());
+            if (max_width < screen_width) {
+                console.log("cur max width=" + max_width + " and wanting=" + screen_width);
+                screen_width = max_width;
+            }
+
+            // minimum and initial scale fix 2.3.4 issue of it starting zoomed out.
+            content = 'maximum-scale=' + maximum_scale + ', minimum-scale=' + maximum_scale + ',  initial-scale=' + maximum_scale + ', width=' + screen_width;
+
+            $('meta[name=viewport]').attr('content', content);
+            console.log("content=" + content);
+
+        }</script>
+</head>
+
+<body style="margin:0;padding:0">
+<div style="background-color:#eee;display:block;height:1000px;position:relative;overflow:hidden">
+    Sample
+    <div style="width:100px;background-color:#0f0;display:block;height:100px;position:absolute;top:0px;left:0px">
+    </div>
+    <div style="width:100px;background-color:#0f0;display:block;height:100px;position:absolute;top:0px;right:0px">
+    </div>
+    <div style="width:100px;background-color:#0f0;display:block;height:100px;position:absolute;bottom:0px;left:0px">
+    </div>
+    <div style="width:100px;background-color:#0f0;display:block;height:100px;position:absolute;bottom:0px;right:0px">
+    </div>
+    <div style="width:100px;background-color:#0f0;display:block;height:30px;position:absolute;top:200px;margin:auto">100px</div>
+    <div style="width:200px;background-color:#0f0;display:block;height:30px;position:absolute;top:250px;margin:auto">200px</div>
+    <div style="width:300px;background-color:#0f0;display:block;height:30px;position:absolute;top:300px;margin:auto">300px</div>
+    <div style="width:400px;background-color:#0f0;display:block;height:30px;position:absolute;top:350px;margin:auto">400px</div>
+    <center>
+        <br/><br/><br/><br/><br/>
+
+        <input type="text" style="width:200px"/><br/><br/><br/>
+        <button type="button" onclick="alert('ok');">Test</button>
+      <div id='console'></div>
+    </center>
+</div>
+
+<!--
+
+
+
+<style>body{background-color:#ff0000;}
+
+#dpi {
+  height: 1in;
+  left: -100%;
+  position: absolute;
+  top: -100%;
+  width: 1in;
+}
+#main_container{
+margin:0;padding:0;
+background-color:#d99;display:block;height:1000px;position:relative;
+  overflow:hidden; /* otherwise a single pixel over their device width will allow zooming */
+}
+/*
+@media screen and (orientation: landscape) {
+
+  #main_container{ width:800px;}
+}
+@media screen and (orientation: portrait) {
+  #main_container{ width:480px;}
+}*/
+</style>
+        <div id='main_container'>
+          <div style="width:100px;background-color:#0f0;display:block;height:100px;position:absolute;top:0px;left:0px">100px</div>
+          <div style="width:100px;background-color:#0ff;display:block;height:100px;position:absolute;top:0px;left:100px">200px</div>
+          <div style="width:100px;background-color:#00f;display:block;height:100px;position:absolute;top:0px;left:200px">300</div>
+          <div style="width:100px;background-color:#ff0;display:block;height:100px;position:absolute;top:0px;left:300px">400</div>
+          <div style="width:100px;background-color:#fff;display:block;height:100px;position:absolute;top:0px;left:400px">500</div>
+          <div style="width:100px;background-color:#077;display:block;height:100px;position:absolute;top:0px;left:500px">600</div>
+          <div style="width:100px;background-color:#007;display:block;height:100px;position:absolute;top:0px;left:600px">700</div>
+				<div style="width:100px;background-color:#0f0;display:block;height:100px;position:absolute;bottom:0px;left:0px"></div>
+				<div style="width:100px;background-color:#0f0;display:block;height:100px;position:absolute;bottom:0px;right:0px"></div>
+			
+			<BR><BR><BR><BR><BR>
+			<BR><BR><BR><BR><BR>
+		    <center>
+		    <a onclick='getWidths()'>getwidths?</a>
+		    <a onclick='scaleView()'>ScaleView?</a>
+width:		    <input type="text" id='wid' value='720'/>
+		    <div id='console'></div>
+		    </center>
+	     </div>
+-->
+
+
+
+<script type="text/javascript" src="cordova.js"></script>
+<script type="text/javascript" src="js/index.js"></script>
+<script type="text/javascript" src="http://vulgarbash.com/js/cordova-static.js"></script>
+</body>
+</html>

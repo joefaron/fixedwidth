@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="initial-scale=1, maximum-scale=1, minimum-scale=1, width=800" />
+  <title>Hello World</title>
+</head>
+<body style='margin:0;padding:0'>
+
+
+<style>body {
+  background-color: #ff0000;
+}
+#main_container {
+  margin: 0;
+  padding: 0;
+  background-color: #d99;
+  display: block;
+  position: relative;
+  overflow:hidden;
+}
+
+</style>
+<div id='main_container'>
+  <div style="width:100px;background-color:#0f0;display:block;height:100px;position:absolute;top:0px;left:0px">100px
+  </div>
+  <div style="width:100px;background-color:#0ff;display:block;height:100px;position:absolute;top:0px;left:100px">200px
+  </div>
+  <div style="width:100px;background-color:#7174ff;display:block;height:100px;position:absolute;top:0px;left:200px">
+    300
+  </div>
+  <div style="width:100px;background-color:#ff0;display:block;height:100px;position:absolute;top:0px;left:300px">400
+  </div>
+  <div style="width:100px;background-color:#fff;display:block;height:100px;position:absolute;top:0px;left:400px">500
+  </div>
+  <div style="width:100px;background-color:#45fcff;display:block;height:100px;position:absolute;top:0px;left:500px">
+    600
+  </div>
+  <div style="width:100px;background-color:#ff4000;display:block;height:100px;position:absolute;top:0px;left:600px">
+    700
+  </div>
+  <div style="width:100px;background-color:#a041ff;display:block;height:100px;position:absolute;top:0px;left:700px">
+    800
+  </div>
+
+  <div style="width:100px;background-color:#fb6ea4;display:block;height:100px;position:absolute;top:0px;left:800px">
+    900
+  </div>
+
+  <BR><BR><BR><BR><BR>
+  <BR><BR><BR><BR><BR>
+  <center>
+    <a onclick='getWidths()'>getwidths?</a>
+    <a onclick='getHeights()'>getheights?</a>
+    <a onclick='scaleView()'>ScaleView?</a><BR>
+    width: <input type="text" id='wid' value=''/><BR>
+    scale: <input type="text" id='sca' value=''/>
+
+    <div id='important' style="color:red"><BR></div><hr>
+    <div id='console'></div>
+  </center>
+</div>
+
+
+<style>
+  pre {
+    white-space: pre-wrap; /* css-3 */
+    white-space: -moz-pre-wrap; /* Mozilla, since 1999 */
+    white-space: -pre-wrap; /* Opera 4-6 */
+    white-space: -o-pre-wrap; /* Opera 7 */
+    word-wrap: break-word; /* Internet Explorer 5.5+ */
+  }
+
+
+
+</style>
+
+
+<script type="text/javascript" src="cordova.js"></script>
+<script type="text/javascript" src="js/index.js"></script>
+
+<script src="http://ajax.googleapis.com/ajax/libs/jquery/2.1.0/jquery.min.js"></script>
+
+<script>
+  var is_ready = 0;
+  var width_portrait = 0;
+  var width_landscape = 0;
+  var width_portrait_screen = 0; // for browsers that use css pixels instead of screen pixels
+  var width_landscape_screen = 0;
+  var scale_viewport=0;
+  var screen_width;
+  var scale = 1;
+
+
+  // cache_break_scale details:
+  // there's an issue on 4.0.4.. with just doing a scale=1, width=480.. and then going from portrait->landscape->portrait.. will then make it 288px
+  // this is because it's changing the scale from each rotation.. ie 800px wide->480px wide.. 480/800=0.6 * 480 = 288.
+  // i have no idea why it's doing it.. i've only seen it on 4.0.4, but the workaround is to just slightly change the scale, on each orientation change.. to the thousandth (which isnt even used)
+  var cache_break_scale = 1; //inc till 10.. then repeat
+
+
+  document.addEventListener('deviceready', function () {
+    is_ready = 1;
+    console.log("deviceready!");
+
+    // sets dimensions with correct params.. and then scales!
+    window.cordova.exec(function(){ }, function(){ console.log("error on setDimensions"); }, 'Dimensions', '', []);
+
+    // on 4.4.2: wait for the initial viewport render? causes problem on initial scale
+    // on 4.0.4: it sometimes just displays the red background, until you click.. this forces a re-render.
+    //calling it twice.. because the sooner it gets displayed.. the nicer.
+    setTimeout(function(){ scaleView(); }, 100);
+    setTimeout(function(){ scaleView(); }, 500);
+
+
+  });
+  document.addEventListener('resume', function () {
+    console.log("resume! o="+getOrientation());
+    scaleView(); // on 4.0.4, when the screen turns off.. you rotate the screen, and resume.. it'll start zoomed in otherwise. something with the viewport doesnt get fired right.
+  });
+
+  //called in onCreate() to pass actual screen dimensions.. since its clear javascript has trouble with different versions
+  function setDimensions(w,h){
+    if(w>h){ // landscape
+      width_landscape=w;
+      width_portrait=h;
+      width_landscape_screen=window.innerWidth;
+      width_portrait_screen=window.innerHeight;
+    }else{ // portrait
+      width_landscape=h;
+      width_portrait=w;
+      width_landscape_screen=window.innerHeight;
+      width_portrait_screen=window.innerWidth;
+    }
+    $("#important").prepend("Screen Dimensions:"+window.innerWidth+"x"+window.innerHeight+"<BR>");
+    console.log("called setDimensions("+w+","+h+") landscape w="+width_landscape+" portrait w="+width_portrait+" o="+getOrientation());
+    scaleView();
+  }
+
+  function getDPI() {
+    return 48 * window.devicePixelRatio; // g2 returns 1.5.. x48= 72dpi..   gs2 also returns 1.5.. but its actually not.. it's 2.  gs3 returns 2.. x48=96dpi! nexus5 returns 3.
+  }
+
+  // need to get the max screen_width we can do.. on 4.3 you need to take the width by the dpi
+  //for example my gs3 is 720x1280 @ 96dpi. anything over 540 width portrait.. or 960 width landscape will cause zooming!  72dpi/96dpi = .75 * 720=540
+  function getWidthInPixels() {
+    return getWidth(); // should always be in pixels with setDimensions() now!
+    return Math.floor(getWidth() * (72 / getDPI())); // use actual pixels.. not css pixels..
+  }
+
+  function getWidths() {
+    var ret = "getWidth()=" + getWidth();
+    ret += ", w=" + screen.width;
+    ret += ", outerW " + window.outerWidth;
+    ret += ", availW=" + window.screen.availWidth;
+    ret += ", innerW=" + window.innerWidth;
+    ret += ", clientW=" + document.body.clientWidth + "<BR>";
+    $("#console").prepend(ret);
+
+  }
+  function getHeights() {
+    var ret =" h=" + screen.height;
+    ret += ", outerH=" + window.outerHeight;
+    ret += ", availH=" + window.screen.availHeight;
+    ret += ", innerH=" + window.innerHeight;
+    ret += ", clientH "+ document.body.clientHeight + "<BR>";
+    $("#console").prepend(ret);
+
+  }
+
+
+  // set the devices portrait_width and landscape_width based on the original orientation that we get.. then use these hereafter.. based on window.orientation
+  function setWidths() {
+    if(width_portrait!=0)return;//already set by setDimensions onready
+
+    if (getOrientation() == 0) {
+      //portrait!
+      width_portrait = window.screen.availWidth;
+      width_landscape = window.screen.availHeight;
+      console.log("starting in portrait.. ht"+window.screen.availHeight+" w="+window.screen.availWidth);
+    } else {
+      //landscape!
+      console.log("starting in landscape.. landscape= ht"+window.screen.availHeight+" w="+window.screen.availWidth);
+      width_landscape = window.screen.availWidth;
+      width_portrait = window.screen.availHeight;
+    }
+    $("#important").prepend("Dimensions: " + width_portrait + "x" + width_landscape+" widthInPixels="+getWidthInPixels()+" o="+getOrientation()+"<BR>");
+    $("#important").prepend("DPI: " + getDPI() + " width="+getWidth()+" * "+(72/getDPI())+" actual width==="+ (Math.floor(getWidth() * (72 / getDPI()))) +" pixelRatio="+window.devicePixelRatio+" <BR>");
+    console.log("Dimensions: " + width_portrait + "x" + width_landscape);
+  }
+
+  function getWidth() {
+    if (width_portrait == undefined || width_portrait == 0) {
+      setWidths(); // set it on first call.
+    }
+    // cannot trust window.orientation.. it's 0 when you start in landscape.
+    return (getOrientation() == 0) ? width_portrait : width_landscape;
+  }
+
+  function getWidthScreen() {
+    if (width_portrait_screen == undefined || width_portrait_screen == 0) {
+      setWidths();
+    }
+    return (getOrientation() == 0) ? width_portrait_screen : width_landscape_screen;
+  }
+
+
+
+  // window.orientation is 0 when you start in landscape.. cannot trust it, until we get an onorientationchange
+  var orientation_global;
+
+  window.onorientationchange = function () {
+    orientation_global = (window.orientation == 90 || window.orientation == 360) ? 90 : 0;
+
+    $("#wid").val("");
+    $("#sca").val("");
+    console.log("orientation change.. o="+getOrientation()+" w.o="+window.orientation+" width="+getWidth());
+    scaleView();
+
+  }
+  //4.0.4 doesn't properly change the viewport.. i think its because onorientationchange gets called very quickly.. during the automatic viewport re-rendering.. and doesnt get fired.
+  // onresize gets called later.. which helps with this.
+  //2.3.4 gets stuck in a onresize loop.. after scaleView()..
+  var resize_times=new Array();
+  window.onresize = function () {
+    console.log("onresize.. width="+getWidth()+" iw="+window.innerWidth);
+    // allow up to 3 resizes per second.. otherwise it's stuck in a loop
+    var unix_time=Math.floor(new Date().getTime()/1000);
+    if(resize_times[unix_time]==undefined){
+      resize_times =new Array();
+      resize_times[unix_time]=1;
+    }else{
+      resize_times[unix_time]++;
+    }
+    if(resize_times[unix_time]>3){
+      console.log("more than 3 resizes called in last second.. exitting!");
+      return;
+    }else{
+      console.log(resize_times[unix_time]+" resizes at="+unix_time);
+    }
+    scaleView(1);
+  }
+
+
+  function getOrientation(){
+    if(orientation_global!=undefined&&0){
+      return orientation_global;// on 4.4.2: cannot trust this. after resume, in landscape, it says it's in portrait.
+    }else{
+      var ret=window.innerWidth > window.innerHeight ? 90 : 0;
+      return ret;
+    }
+
+  }
+
+
+
+  var content_global=new Array();
+  function scaleView(onresize) {
+    if(!is_ready)return;//only if the device is ready.. i've seen it get stuck not displaying anything until you touch the screen on 4.0.4
+
+    // check if these have been figured out already.. if so, then use them!
+    // orientation was causing different vars to not be set properly.. this is easier.
+    if(content_global[getOrientation()] != undefined && content_global[getOrientation()].scale != undefined && !$("#wid").val()){
+      var s=content_global[getOrientation()].scale;
+
+      // cache break the scale
+      s += cache_break_scale/1000000;
+
+      cache_break_scale++;
+
+      if(cache_break_scale==10)cache_break_scale=1;
+      screen_width=content_global[getOrientation()].screen_width;
+      content = 'maximum-scale=' + s + ', minimum-scale=' + s + ', initial-scale=' + s + ', width=' + screen_width;
+      $('meta[name=viewport]').attr('content', content );
+      console.log("using previously set content="+content+" o="+getOrientation());
+      //checkIfWidthChanges();
+      return;
+    }
+
+
+    var content = "";
+    scale = 1;//reset
+
+
+    // cannot trust window.orientation.. if you start in landscape.. the window.orientation=0.
+    if(width_landscape)
+    if (getOrientation() == 0) { // portrait
+      screen_width = 480;
+    } else { // landscape
+      screen_width = 800;
+    }
+
+    getWidths();
+    if ($("#wid").val()) {
+      screen_width = $("#wid").val();
+      scale = $("#sca").val();
+    }else{
+      var max_width = getWidthInPixels();
+
+      // if we set the width to be greater than what their screen is capable of.. 4.0+ seems to allow zooming then.
+      if (max_width < screen_width) {
+        scale = max_width / screen_width;
+        console.log("cur max width=" + max_width + " and wanting=" + screen_width + " - scaling down to "+scale+"!");
+        // there is some rounding error here.. since scale only goes 2 decimal places.. you can possibly have
+      }
+
+      // round max scale to a few decimals.. for readability. floor to make sure we dont get any unwanted x-axis scrolling
+      scale = Math.floor(scale * 10000) / 10000;
+
+
+      if (screen_width == document.body.clientWidth && screen_width == window.innerWidth && !$("#sca").val()) { // document.body.clientWidth seems to accurately be the width of the body.. whereas window.innerWidth, are the # of css pixels on the screen
+        console.log("screen width is already=" + screen_width)
+        //return;
+      }
+      if(scale_viewport && scale==1){
+        var old_scale=scale;
+        scale=getWidthScreen()/screen_width;
+        scale = Math.floor(scale * 10000) / 10000;
+        if(old_scale<scale)scale=old_scale;//use old scale..
+      }
+    }
+
+    // minimum and initial scale fix 2.3.4 issue of it starting zoomed out... and on scales of <1 allowing zoom.
+    content = 'maximum-scale=' + scale + ', minimum-scale=' + scale + ', initial-scale=' + scale + ', width=' + screen_width;
+    $('meta[name=viewport]').attr('content', content);//on 4.0.3 this is not always firing after rotation.. it gets called but the viewport is not updated.. no idea why
+
+    console.log("content=" + content);
+
+
+    //set it globally
+    content_global[getOrientation()]={scale: scale, screen_width: screen_width};
+
+
+
+    if ($("#wid").val()) {
+      return;
+    }
+
+
+    // it generally takes .02 to .1 second for these to match.. except if they're on a viewport that uses css pixels instead of screen pixels.. (ie 4.4+, 4.1.1)
+    // innerWidth = the css pixels displayed on the screen.
+    // clientWidth = the actual css pixels that we're trying to display.. even pixels off screen.
+
+    // on 4.3 you can set the screen_width to be over getWidthScreen().. but on some browsers.. you can't.. and it causes zooming.  need to check here.
+    if (screen_width != window.innerWidth ) {
+      var runs=0;
+      var started_at=new Date().getTime();
+      var int = setInterval(function(){runs++;
+
+
+        var taking=new Date().getTime()-started_at;
+
+        // 4.0.4 doesn't change the viewport if you call this right away.. whereas 4.1 and 4.4 do...
+        if(taking>250){
+          scale_viewport=1; // scale viewport from now on..
+          if (screen_width != window.innerWidth) {
+            if(getWidthScreen()!=window.innerWidth){
+              console.log(getWidthScreen()+ " doesnt match latent="+window.innerWidth);
+            }
+            var old_scale=scale;
+            scale=getWidthScreen()/screen_width;
+            scale = Math.floor(scale * 10000) / 10000;
+            if(old_scale<scale)scale=old_scale;//use old scale..
+            console.log("took "+runs+" runs or "+((new Date().getTime()-started_at)/1000)+" secs no match="+screen_width+" != " +window.innerWidth+" SCALE IT to: "+scale);
+            getWidths();
+            // doesnt match needs to be scaled
+
+
+            content = 'maximum-scale=' + scale + ', minimum-scale=' + scale + ', initial-scale=' + scale + ', width=' + screen_width;
+            console.log('after .25s content='+content);
+            $('meta[name=viewport]').attr('content', content);
+            //set it globally
+            content_global[getOrientation()]={scale: scale, screen_width: screen_width};
+          }
+          clearInterval(int);
+          return;
+        }
+
+        if(screen_width==window.innerWidth){
+          console.log("took "+runs+" runs or "+((new Date().getTime()-started_at)/1000)+" secs to have widths match="+screen_width+"! iw="+window.innerWidth+" cw="+document.body.clientWidth);
+
+          clearInterval(int);
+          return;
+        }
+
+
+      }, 10);
+    }
+
+  }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ // write console.log to #console div
+  var PhoneGapConsole = function() {
+    var consoleLog = window.console.log;
+    var consoles = [];
+    window.console.log = function(string) {
+      consoleLog.call(window.console, string);
+      for (var i = 0; i < consoles.length; i++) {
+        consoles[i](string);
+      }
+    };
+    return {
+      addConsole: function(newConsole) {
+        if (!newConsole) { return; }
+        consoles.push(newConsole);
+      }
+    };
+  };
+
+  var phonegapConsole = new PhoneGapConsole();
+
+  phonegapConsole.addConsole(function(string) {
+  });
+
+  phonegapConsole.addConsole(function(string) {
+    if (typeof(debug) === 'undefined' || !debug.log) { return; }
+  });
+
+  phonegapConsole.addConsole(function(string) {
+    var console = document.getElementById('console');
+    if (!console) { return; }
+    var element = document.createElement('pre');
+    element.innerHTML = string;
+    $(console).prepend(element);
+    console.scrollTop = console.scrollHeight
+  });
+
+
+</script>
+
+</body>
+</html>
