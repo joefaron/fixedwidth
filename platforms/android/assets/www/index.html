@@ -47,6 +47,12 @@
   <div style="width:100px;background-color:#fb6ea4;display:block;height:100px;position:absolute;top:0px;left:800px">
     900
   </div>
+    <div style="width:470px;background-color:#64b0ff;display:block;height:20px;position:absolute;top:80px;left:0px">
+        470
+    </div>
+    <div style="width:320px;background-color:#96ccff;display:block;height:20px;position:absolute;top:80px;left:470px">
+        790
+    </div>
 
   <BR><BR><BR><BR><BR>
   <BR><BR><BR><BR><BR>
@@ -110,14 +116,15 @@
     // on 4.4.2: wait for the initial viewport render? causes problem on initial scale
     // on 4.0.4: it sometimes just displays the red background, until you click.. this forces a re-render.
     //calling it twice.. because the sooner it gets displayed.. the nicer.
-    setTimeout(function(){ scaleView(); }, 100);
-    setTimeout(function(){ scaleView(); }, 500);
+    /*setTimeout(function(){ scaleView(); }, 100);
+    setTimeout(function(){ scaleView(); }, 500);*/
 
 
   });
   document.addEventListener('resume', function () {
     console.log("resume! o="+getOrientation());
-    scaleView(); // on 4.0.4, when the screen turns off.. you rotate the screen, and resume.. it'll start zoomed in otherwise. something with the viewport doesnt get fired right.
+    window.cordova.exec(function(){ }, function(){ console.log("error on setDimensions"); }, 'Dimensions', '', []);
+    //scaleView(); // on 4.0.4, when the screen turns off.. you rotate the screen, and resume.. it'll start zoomed in otherwise. something with the viewport doesnt get fired right.
   });
 
   //called in onCreate() to pass actual screen dimensions.. since its clear javascript has trouble with different versions
@@ -216,7 +223,9 @@
     $("#wid").val("");
     $("#sca").val("");
     console.log("orientation change.. o="+getOrientation()+" w.o="+window.orientation+" width="+getWidth());
-    scaleView();
+
+    window.cordova.exec(function(){ }, function(){ console.log("error on setDimensions"); }, 'Dimensions', '', []);
+    //scaleView();
 
   }
   //4.0.4 doesn't properly change the viewport.. i think its because onorientationchange gets called very quickly.. during the automatic viewport re-rendering.. and doesnt get fired.
@@ -239,7 +248,9 @@
     }else{
       console.log(resize_times[unix_time]+" resizes at="+unix_time);
     }
-    scaleView(1);
+
+    window.cordova.exec(function(){ }, function(){ console.log("error on setDimensions"); }, 'Dimensions', '', []);
+    //scaleView(1);
   }
 
 
@@ -297,7 +308,8 @@
       scale = $("#sca").val();
     }else{
       var max_width = getWidthInPixels();
-
+      console.log('screen_width='+screen_width);
+      console.log('max_width='+max_width);
       // if we set the width to be greater than what their screen is capable of.. 4.0+ seems to allow zooming then.
       if (max_width < screen_width) {
         scale = max_width / screen_width;
@@ -320,6 +332,7 @@
         if(old_scale<scale)scale=old_scale;//use old scale..
       }
     }
+    
 
     // minimum and initial scale fix 2.3.4 issue of it starting zoomed out... and on scales of <1 allowing zoom.
     content = 'maximum-scale=' + scale + ', minimum-scale=' + scale + ', initial-scale=' + scale + ', width=' + screen_width;
@@ -361,7 +374,7 @@
             var old_scale=scale;
             scale=getWidthScreen()/screen_width;
             scale = Math.floor(scale * 10000) / 10000;
-            if(old_scale<scale)scale=old_scale;//use old scale..
+           // if(old_scale<scale)scale=old_scale;//use old scale..
             console.log("took "+runs+" runs or "+((new Date().getTime()-started_at)/1000)+" secs no match="+screen_width+" != " +window.innerWidth+" SCALE IT to: "+scale);
             getWidths();
             // doesnt match needs to be scaled
@@ -371,6 +384,7 @@
             console.log('after .25s content='+content);
             $('meta[name=viewport]').attr('content', content);
             //set it globally
+             console.log('Setting globally for orientation='+getOrientation()+ ' > '+'scale='+scale+', screen_width='+screen_width);
             content_global[getOrientation()]={scale: scale, screen_width: screen_width};
           }
           clearInterval(int);
