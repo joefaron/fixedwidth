@@ -3,7 +3,7 @@
 <html>
 <head>
   <meta charset="utf-8"/>
-  <meta name="viewport" content="initial-scale=1, maximum-scale=1, minimum-scale=1, width=550" />
+  <meta name="viewport" content="initial-scale=1, maximum-scale=1, minimum-scale=1, width=800" />
   <title>Hello World</title>
 </head>
 <body style='margin:0;padding:0'>
@@ -50,8 +50,8 @@
     <div style="width:470px;background-color:#64b0ff;display:block;height:20px;position:absolute;top:80px;left:0px">
         470
     </div>
-    <div style="width:320px;background-color:#96ccff;display:block;height:20px;position:absolute;top:80px;left:470px">
-        790
+    <div style="width:730px;background-color:#96ccff;display:block;height:20px;position:absolute;top:80px;left:470px">
+        1200
     </div>
 
   <BR><BR><BR><BR><BR>
@@ -59,7 +59,7 @@
   <center>
     <a onclick='getWidths()'>getwidths?</a>
     <a onclick='getHeights()'>getheights?</a>
-    <a onclick='scaleView()'>ScaleView?</a>
+    <a onclick='scaleItFromInputs()'>ScaleIt()?</a>
     <a onclick='scaleViewNew()'>ScaleViewNew?</a>
 
       <BR>
@@ -92,15 +92,7 @@
 <script src="http://ajax.googleapis.com/ajax/libs/jquery/2.1.0/jquery.min.js"></script>
 
 <script>
-  var is_ready = 0;
-  var width_portrait = 0;
-  var width_landscape = 0;
-  var width_portrait_screen = 0; // for browsers that use css pixels instead of screen pixels
-  var width_landscape_screen = 0;
-  var scale_viewport=0;
   var screen_width;
-  var scale = 1;
-
 
   // cache_break_scale details:
   // there's an issue on 4.0.4.. with just doing a scale=1, width=480.. and then going from portrait->landscape->portrait.. will then make it 288px
@@ -111,7 +103,6 @@
 
 
   document.addEventListener('deviceready', function () {
-    is_ready = 1;
     console.log("deviceready!");
 
     // sets dimensions with correct params.. and then scales!
@@ -135,6 +126,9 @@
     scaleViewNew(); // on 4.0.4, when the screen turns off.. you rotate the screen, and resume.. it'll start zoomed in otherwise. something with the viewport doesnt get fired right.
   });
 
+  function scaleItFromInputs(){
+    scaleIt(parseFloat($("#wid").val()), parseFloat($("#sca").val()));
+  }
 
   function getWidths() {
     var ret = "w=" + screen.width;
@@ -164,8 +158,6 @@
   window.onorientationchange = function () {
     orientation_global = (window.orientation == 90 || window.orientation == 360) ? 90 : 0;
 
-    $("#wid").val("");
-    $("#sca").val("");
     console.log("___________________________________________________");
     console.log("___________________________________________________");
     console.log("___________________________________________________");
@@ -239,6 +231,7 @@ function watchInnerWidth(){
 
     if(taking>500){
       console.log("watchInnerWidth() "+(taking/1000)+" secs) "+runs+" runs) NO innerWidth change! sw="+screen_width +" iw="+ window.innerWidth);
+
       clearInterval(int);
       return;
     }
@@ -250,7 +243,6 @@ function watchInnerWidth(){
       console.log("watchInnerWidth() "+(taking/1000)+" secs) "+runs+" runs) iw MATCHES! sw="+screen_width+" prev_iw="+prev_iw+" iw="+window.innerWidth+" cw="+document.body.clientWidth+" o="+getOrientation());
       clearInterval(int);
       return;
-      //550-5 <= 552 && 550+5 >=552  sw=550 iw=552
     }else if((screen_width-one_percent) <= window.innerWidth && (screen_width+one_percent) >=window.innerWidth){
       console.log("watchInnerWidth() "+(taking/1000)+" secs) "+runs+" runs) iw SEMI-MATCHES within +/-"+one_percent+"!  sw="+screen_width+" prev_iw="+prev_iw+" iw="+window.innerWidth+" cw="+document.body.clientWidth+" o="+getOrientation());
       clearInterval(int);
@@ -265,8 +257,9 @@ function watchInnerWidth(){
   }, 10);
 }
 
-  var current_width=480; // as per the meta viewport tag.
+  var current_width=800; // as per the meta viewport tag.
   var current_scale=1; // it's 1 by default.
+  var screen_density=0;// you don't need to get innerWidth, if you have this.. calculated from the first inner width we have. gs3 density=~0.75
   var scale_globals=new Array();
 
   function scaleViewNew(){
@@ -291,11 +284,23 @@ function watchInnerWidth(){
     }
 
     // 480 width in portrait.. 800 in landscape!
-    screen_width = o==0 ? 550 : 850;
+    screen_width = o==0 ? 800 : 1400;
 
     // store it for future calls
     scale_globals[o].screen_width=screen_width;
     console.log("scale_globals["+o+"].screen_width="+screen_width);
+
+    // had an issue going from portrait to landscape.. not sure what caused it.. possibly not setting scale.. if it matches off the bat.
+    scale_globals[o].scale=current_scale;
+    console.log("scale_globals["+o+"].scale="+current_scale);
+
+
+    // if we have a screen_density then we know what this inner_width is.
+    if(screen_density){
+      console.log("calc inner_width for this orientation via screen_density and device_width now!");
+      window.cordova.exec(function(){ scaleViewResize(); }, function(){ console.log("error on setDimensions"); }, 'Dimensions', '', []); // this will call back to setDimensions()
+      return;
+    }
 
     // we need to get an accurate window.innerWidth. Need to set the viewport scale to 1.. if it isn't already.
     if(current_scale!=1){
@@ -352,6 +357,7 @@ function watchInnerWidth(){
       console.log("trying to scale with undefined! exit!");return;
     }
 
+
     var s=scale;
 
     // cache break the scale
@@ -359,6 +365,10 @@ function watchInnerWidth(){
 
     //round for readability
     s=s.round(6);
+
+    // set this to the inputs for testing
+    $("#wid").val(width);
+    $("#sca").val(s);
 
     console.log("scaleIt("+width+", "+scale+") o="+getOrientation()+" screen_width="+screen_width+" iw="+window.innerWidth);
 
@@ -421,14 +431,26 @@ function watchInnerWidth(){
     var o=getOrientation();
     var scale=1;
     // exceeds device width! need to scale it down!
+
+
+
     if(screen_width > scale_globals[o].device_width){
       scale =  scale_globals[o].device_width/screen_width;
       console.log("screen_width>device_width "+screen_width+">"+scale_globals[o].device_width+"  scale="+scale);
+
+      // however with the screen_density is <1, the scale * screen_width > device_width (ie allows zoom).. (ex: on a gs3 trying to display portrait width>720)
+      if(scale*screen_width > scale_globals[o].iw){
+        console.log("scale*screen_width > iw = "+scale+"*"+screen_width +" > "+scale_globals[o].iw+" screen_density is probably < 1.. cannot base scale on device_width/screen_width!");
+        var old_scale=scale;
+        scale = scale_globals[o].iw/screen_width
+        console.log("iw/screen_width = "+scale_globals[o].iw+"/"+screen_width+" == new scale="+scale+" old="+old_scale);
+      }
+
+
     }else if(screen_width != scale_globals[o].iw){
       // doesnt match, need to scale
       scale = scale_globals[o].iw/screen_width
       console.log("screen_width!=innerWidth "+screen_width+">"+scale_globals[o].iw+"  scale="+scale);
-
     }else{
       // screen width matches innerwidth.. we're good..
       console.log("screen_width==innerWidth "+screen_width+"=="+scale_globals[o].iw+" dont resize!");
@@ -446,6 +468,21 @@ function watchInnerWidth(){
 
   function setDimensions(w,h){
     var o=getOrientation();
+
+    if( scale_globals[o]==undefined){
+      //first call after on ready.. set it.
+      scale_globals[o]={device_width: w};
+      console.log("scale_globals["+o+"].device_width="+w+" before object was created!");
+    }
+    //set screen density, so we dont need to recalc future innerWidths.
+    if(!screen_density && scale_globals[o].iw != undefined){
+      screen_density=scale_globals[o].iw/w;
+      console.log("screen_density="+screen_density+" iw/w == "+scale_globals[o].iw+"/"+w);
+    }else if(scale_globals[o].iw == undefined && screen_density){
+      scale_globals[o].iw = Math.floor(screen_density * w); // automatically calc it from previously set screen_density!
+      console.log("scale_globals["+o+"].iw="+scale_globals[o].iw+" from screen_density="+screen_density);
+    }
+
     if(scale_globals[o]!= undefined && scale_globals[o].device_width == undefined){
       scale_globals[o].device_width=w;
       console.log("scale_globals["+o+"].device_width="+w);
